@@ -15,7 +15,7 @@ def init_database():
         admin.set_password('admin12345678')
         db.session.add(admin)
         print("Administrador criado: admin@gmail.com / admin12345678")
-    
+
     # Serviços disponíveis
     servicos = [
         {
@@ -37,14 +37,14 @@ def init_database():
             'duracao_minutos': 75
         }
     ]
-    
+
     for servico_data in servicos:
         servico = Servico.query.filter_by(nome=servico_data['nome']).first()
         if not servico:
             servico = Servico(**servico_data)
             db.session.add(servico)
             print(f"Serviço criado: {servico_data['nome']}")
-    
+
     # Horários de funcionamento padrão (Seg-Sex 8h-18h, Sáb 8h-12h)
     dias_semana = [
         {'dia': 0, 'aberto': False, 'nome': 'Domingo'},  # Domingo fechado
@@ -55,7 +55,7 @@ def init_database():
         {'dia': 5, 'aberto': True, 'abertura': time(8,0), 'fechamento': time(18,0), 'nome': 'Sexta'},
         {'dia': 6, 'aberto': True, 'abertura': time(8,0), 'fechamento': time(12,0), 'nome': 'Sábado'},
     ]
-    
+
     for dia_data in dias_semana:
         horario = HorarioFuncionamento.query.filter_by(dia_semana=dia_data['dia']).first()
         if not horario:
@@ -69,19 +69,19 @@ def init_database():
             db.session.add(horario)
             status = "aberto" if dia_data['aberto'] else "fechado"
             print(f"{dia_data['nome']}: {status}")
-    
+
     # Configurações do sistema
     configuracoes = [
         {'chave': 'multa_cancelamento', 'valor': '20', 'descricao': 'Percentual de multa para cancelamento com menos de 24h'},
         {'chave': 'tempo_minimo_cancelamento', 'valor': '24', 'descricao': 'Horas mínimas para cancelamento sem multa'},
         {'chave': 'intervalo_agendamento', 'valor': '30', 'descricao': 'Intervalo entre agendamentos em minutos'}
     ]
-    
+
     for config_data in configuracoes:
         config = Configuracao.query.filter_by(chave=config_data['chave']).first()
         if not config:
             config = Configuracao(**config_data)
             db.session.add(config)
             print(f"Configuração: {config_data['chave']} = {config_data['valor']}")
-    
+
     db.session.commit()
