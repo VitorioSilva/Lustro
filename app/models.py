@@ -4,7 +4,7 @@ import bcrypt
 
 class User(db.Model):
     __tablename__ = 'users'
-
+    
     id = db.Column(db.Integer, primary_key=True)
     nome = db.Column(db.String(100), nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
@@ -12,17 +12,17 @@ class User(db.Model):
     telefone = db.Column(db.String(20))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     is_admin = db.Column(db.Boolean, default=False)
-
+    
     # Relacionamentos
-    agendamentos = db.relationship('Agendamento', backref='cliente', lazy=True)
-    veiculos = db.relationship('Veiculo', backref='dono', lazy=True)
-
+    agendamentos = db.relationship('Agendamento', backref='cliente', lazy=True, cascade='all, delete-orphan')
+    veiculos = db.relationship('Veiculo', backref='dono', lazy=True, cascade='all, delete-orphan')
+    
     def set_password(self, password):
         self.senha_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-
+    
     def check_password(self, password):
         return bcrypt.checkpw(password.encode('utf-8'), self.senha_hash.encode('utf-8'))
-
+    
     def to_dict(self):
         return {
             'id': self.id,
@@ -33,32 +33,24 @@ class User(db.Model):
             'created_at': self.created_at.isoformat()
         }
 
-    def get_agendamentos_futuros(self):
-        from datetime import datetime
-        return Agendamento.query.filter(
-            Agendamento.user_id == self.id,
-            Agendamento.data_agendamento >= datetime.now(),
-            Agendamento.status == 'confirmado'
-        ).all()
-
-    def get_veiculo_by_placa(self, placa):
-        return Veiculo.query.filter_by(placa=placa, user_id=self.id).first()
-
 class Veiculo(db.Model):
     __tablename__ = 'veiculos'
-
+    
     id = db.Column(db.Integer, primary_key=True)
-    placa = db.Column(db.String(10), unique=True, nullable=False)
+    placa = db.Column(db.String(10), nullable=False)
     marca = db.Column(db.String(50))
     modelo = db.Column(db.String(50))
     cor = db.Column(db.String(30))
     tipo = db.Column(db.String(20), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-
+    
     # Relacionamentos
-    agendamentos = db.relationship('Agendamento', backref='veiculo', lazy=True)
-
+    agendamentos = db.relationship('Agendamento', backref='veiculo', lazy=True, cascade='all, delete-orphan')
+    
+    # Índice composto para garantir placa única por usuário
+    __table_args__ = (db.UniqueConstraint('placa', 'user_id', name='unique_placa_per_user'),)
+    
     def to_dict(self):
         return {
             'id': self.id,
@@ -73,14 +65,14 @@ class Veiculo(db.Model):
 
 class Servico(db.Model):
     __tablename__ = 'servicos'
-
+    
     id = db.Column(db.Integer, primary_key=True)
     nome = db.Column(db.String(50), nullable=False)
     descricao = db.Column(db.Text)
     preco_base = db.Column(db.Float, nullable=False)
     duracao_minutos = db.Column(db.Integer, nullable=False)
     ativo = db.Column(db.Boolean, default=True)
-
+    
     def to_dict(self):
         return {
             'id': self.id,
@@ -93,19 +85,19 @@ class Servico(db.Model):
 
 class Agendamento(db.Model):
     __tablename__ = 'agendamentos'
-
+    
     id = db.Column(db.Integer, primary_key=True)
     data_agendamento = db.Column(db.DateTime, nullable=False)
     status = db.Column(db.String(20), default='confirmado')
     valor_total = db.Column(db.Float, nullable=False)
     observacoes = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-
+    
     # Chaves estrangeiras
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     veiculo_id = db.Column(db.Integer, db.ForeignKey('veiculos.id'), nullable=False)
     servico_id = db.Column(db.Integer, db.ForeignKey('servicos.id'), nullable=False)
-
+    
     def to_dict(self):
         return {
             'id': self.id,
@@ -121,12 +113,12 @@ class Agendamento(db.Model):
 
 class Configuracao(db.Model):
     __tablename__ = 'configuracoes'
-
+    
     id = db.Column(db.Integer, primary_key=True)
     chave = db.Column(db.String(50), unique=True, nullable=False)
     valor = db.Column(db.Text, nullable=False)
     descricao = db.Column(db.Text)
-
+    
     def to_dict(self):
         return {
             'id': self.id,
@@ -137,13 +129,13 @@ class Configuracao(db.Model):
 
 class HorarioFuncionamento(db.Model):
     __tablename__ = 'horarios_funcionamento'
-
+    
     id = db.Column(db.Integer, primary_key=True)
     dia_semana = db.Column(db.Integer, nullable=False)
     aberto = db.Column(db.Boolean, default=True)
     hora_abertura = db.Column(db.Time, default=time(8, 0))
     hora_fechamento = db.Column(db.Time, default=time(18, 0))
-
+    
     def to_dict(self):
         return {
             'id': self.id,

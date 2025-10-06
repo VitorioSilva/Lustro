@@ -1,0 +1,19 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "run.py",
+      "use": "@vercel/python"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "run.py"
+    }
+  ],
+  "env": {
+    "DATABASE_URL": "sqlite:////tmp/lustro.db",
+    "JWT_SECRET_KEY": "lustro-super-secret-key-2025-faculdade-unifap"
+  }
+}
