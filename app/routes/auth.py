@@ -10,7 +10,6 @@ def login():
     try:
         data = request.get_json()
         
-        # Validar dados obrigatórios
         if not data:
             return error_response('Dados JSON são obrigatórios')
         
@@ -20,14 +19,15 @@ def login():
         if not email or not senha:
             return error_response('Email e senha são obrigatórios')
         
-        # Validar formato do email
-        if not validate_email(email):
-            return error_response('Formato de email inválido')
+        # Validar formato do email (apenas Gmail)
+        is_valid, message = validate_email(email)
+        if not is_valid:
+            return error_response(message)
         
         # Buscar usuário
-        user = User.query.filter_by(email=email).first()
+        user = User.query.filter_by(email=email.lower().strip()).first()
         
-        # Verificar se usuário existe e senha está correta
+        # Verificar credenciais
         if not user or not user.check_password(senha):
             return error_response('Credenciais inválidas', 401)
         

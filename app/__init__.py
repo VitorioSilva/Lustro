@@ -15,12 +15,10 @@ migrate = Migrate()
 def create_app():
     app = Flask(__name__)
     
-    # 🔽 CONFIGURAÇÃO PARA VERCEL
-    # No Vercel, usar SQLite em /tmp (única pasta que permite escrita)
+    # Configuração do banco
     if os.getenv('VERCEL'):
         app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////tmp/lustro.db'
     else:
-        # Desenvolvimento local
         app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///lustro.db')
     
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -30,7 +28,7 @@ def create_app():
     if not app.config['JWT_SECRET_KEY']:
         raise ValueError("JWT_SECRET_KEY não definido")
     
-    # Habilitar CORS para frontend no Vercel
+    # CORS para frontend
     CORS(app, origins=[
         "http://localhost:3000",
         "https://*.vercel.app",
@@ -50,7 +48,7 @@ def create_app():
         identity = jwt_data["sub"]
         return User.query.get(int(identity))
     
-    # Handler para erros JWT
+    # Handlers de erro JWT
     @jwt.unauthorized_loader
     def unauthorized_callback(error):
         return jsonify({'error': 'Token de acesso não fornecido'}), 401
@@ -74,31 +72,45 @@ def create_app():
     app.register_blueprint(veiculos_bp, url_prefix='/api/veiculos')
     app.register_blueprint(admin_bp, url_prefix='/api/admin')
     
-    # Rota health check para Vercel
+    # Rota health check
     @app.route('/')
     def health_check():
         return jsonify({'status': 'OK', 'message': 'Lustro API running'})
     
-    # Comando CLI para inicializar o banco (apenas local)
-    @app.cli.command("init-db")
-    def init_db_command():
-        from app.utils.database_init import init_database
-        db.create_all()
-        init_database()
-        print("Banco inicializado com dados padrão!")
-        print("Admin: admin@gmail.com / admin12345678")
-
-    @app.route('/api/init-db')
+    # Comando CLI para inicializar o banco
+    @app.route('/api/init-db', methods=['POST'])
     def init_database_route():
+        """Rota para inicializar o banco no Vercel"""
         try:
             from app.utils.database_init import init_database
             db.create_all()
             init_database()
             return jsonify({
-                'message': 'Banco inicializado com sucesso!',
-                'admin': 'admin@gmail.com / admin12345678'
+                'message': '✅ Banco inicializado com sucesso!',
+                'admin': 'admin@gmail.com / admin12345678',
+                'servicos': 'Lavagem Externa, Interna e Completa criados'
             }), 200
         except Exception as e:
             return jsonify({'error': f'Erro ao inicializar banco: {str(e)}'}), 500
 
+    @app.route('/api/check-db', methods=['GET'])
+    def check_database():
+        """Rota para verificar status do banco"""
+        try:
+            from app.models import User, Servico
+            user_count = User.query.count()
+            servico_count = Servico.query.count()
+            
+            return jsonify({
+                'database_status': 'OK',
+                'users_count': user_count,
+                'servicos_count': servico_count,
+                'tables_created': True
+            }), 200
+        except Exception as e:
+            return jsonify({
+                'database_status': 'NOT_INITIALIZED',
+                'error': str(e)
+            }), 500
+    
     return app
