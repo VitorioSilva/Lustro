@@ -24,6 +24,8 @@ jobs:
         pip install -r requirements.txt
     
     - name: Validate code structure
+      env:
+        JWT_SECRET_KEY: 'chave-temporaria-para-testes-github-actions'
       run: |
         echo "🔍 Validando estrutura do código..."
         
@@ -78,3 +80,7 @@ jobs:
       run: |
         echo '✅ Validações passaram! Vercel fará deploy automático.'
         echo '🌐 Seu backend estará disponível em: https://lustro-black.vercel.app'
+        echo '📝 Lembre-se de configurar as variáveis de ambiente no Vercel:'
+        echo '   - DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME'
+        echo '   - JWT_SECRET_KEY'
+        echo '   - ADMIN_EMAIL, ADMIN_PASSWORD'

@@ -1,22 +1,27 @@
 from app import db
 from app.models import User, Servico, HorarioFuncionamento, Configuracao
 from datetime import time
+import os
 
 def init_database():
-    # Criar administrador padrão
-    admin = User.query.filter_by(email='admin@gmail.com').first()
-    if not admin:
-        admin = User(
-            nome='Administrador',
-            email='admin@gmail.com',
-            telefone='(00) 00000-0000',
-            is_admin=True
-        )
-        admin.set_password('admin12345678')
-        db.session.add(admin)
-        print("Administrador criado: admin@gmail.com / admin12345678")
+    # Criar administrador padrão - SEM credenciais fixas
+    admin_email = os.getenv('ADMIN_EMAIL')
+    admin_password = os.getenv('ADMIN_PASSWORD')
+    
+    if admin_email and admin_password:
+        admin = User.query.filter_by(email=admin_email).first()
+        if not admin:
+            admin = User(
+                nome='Administrador Sistema',
+                email=admin_email,
+                telefone='(00) 00000-0000',
+                is_admin=True
+            )
+            admin.set_password(admin_password)
+            db.session.add(admin)
+            print("Administrador criado com as credenciais das variáveis de ambiente")
 
-    # Serviços disponíveis
+    # Serviços disponíveis (dados não sensíveis)
     servicos = [
         {
             'nome': 'Lavagem Externa',
@@ -45,15 +50,15 @@ def init_database():
             db.session.add(servico)
             print(f"Serviço criado: {servico_data['nome']}")
     
-    # Horários de funcionamento padrão
+    # Horários de funcionamento (dados não sensíveis)
     dias_semana = [
-        {'dia': 0, 'aberto': False, 'nome': 'Domingo'},
-        {'dia': 1, 'aberto': True, 'abertura': time(8,0), 'fechamento': time(18,0), 'nome': 'Segunda'},
-        {'dia': 2, 'aberto': True, 'abertura': time(8,0), 'fechamento': time(18,0), 'nome': 'Terça'},
-        {'dia': 3, 'aberto': True, 'abertura': time(8,0), 'fechamento': time(18,0), 'nome': 'Quarta'},
-        {'dia': 4, 'aberto': True, 'abertura': time(8,0), 'fechamento': time(18,0), 'nome': 'Quinta'},
-        {'dia': 5, 'aberto': True, 'abertura': time(8,0), 'fechamento': time(18,0), 'nome': 'Sexta'},
-        {'dia': 6, 'aberto': True, 'abertura': time(8,0), 'fechamento': time(12,0), 'nome': 'Sábado'},
+        {'dia': 'domingo', 'aberto': False, 'nome': 'Domingo'},
+        {'dia': 'segunda', 'aberto': True, 'abertura': time(8,0), 'fechamento': time(18,0), 'nome': 'Segunda'},
+        {'dia': 'terça', 'aberto': True, 'abertura': time(8,0), 'fechamento': time(18,0), 'nome': 'Terça'},
+        {'dia': 'quarta', 'aberto': True, 'abertura': time(8,0), 'fechamento': time(18,0), 'nome': 'Quarta'},
+        {'dia': 'quinta', 'aberto': True, 'abertura': time(8,0), 'fechamento': time(18,0), 'nome': 'Quinta'},
+        {'dia': 'sexta', 'aberto': True, 'abertura': time(8,0), 'fechamento': time(18,0), 'nome': 'Sexta'},
+        {'dia': 'sábado', 'aberto': True, 'abertura': time(8,0), 'fechamento': time(12,0), 'nome': 'Sábado'},
     ]
     
     for dia_data in dias_semana:
@@ -67,10 +72,8 @@ def init_database():
                 horario.hora_abertura = dia_data['abertura']
                 horario.hora_fechamento = dia_data['fechamento']
             db.session.add(horario)
-            status = "aberto" if dia_data['aberto'] else "fechado"
-            print(f"{dia_data['nome']}: {status}")
     
-    # Configurações do sistema
+    # Configurações do sistema (dados não sensíveis)
     configuracoes = [
         {'chave': 'multa_cancelamento', 'valor': '20', 'descricao': 'Percentual de multa para cancelamento com menos de 24h'},
         {'chave': 'tempo_minimo_cancelamento', 'valor': '24', 'descricao': 'Horas mínimas para cancelamento sem multa'},
@@ -82,6 +85,5 @@ def init_database():
         if not config:
             config = Configuracao(**config_data)
             db.session.add(config)
-            print(f"Configuração: {config_data['chave']} = {config_data['valor']}")
     
     db.session.commit()

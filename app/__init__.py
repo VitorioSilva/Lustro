@@ -3,10 +3,7 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_jwt_extended import JWTManager
 from flask_migrate import Migrate
 from flask_cors import CORS
-from dotenv import load_dotenv
 import os
-
-load_dotenv()
 
 db = SQLAlchemy()
 jwt = JWTManager()
@@ -15,18 +12,28 @@ migrate = Migrate()
 def create_app():
     app = Flask(__name__)
     
-    # Configuração do banco
-    if os.getenv('VERCEL'):
-        app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////tmp/lustro.db'
+    # Configuração TOTALMENTE por variáveis de ambiente
+    db_host = os.getenv('DB_HOST')
+    db_port = os.getenv('DB_PORT')
+    db_user = os.getenv('DB_USER')
+    db_password = os.getenv('DB_PASSWORD')
+    db_name = os.getenv('DB_NAME')
+    
+    # Verificar se todas as variáveis do MySQL estão configuradas
+    if all([db_host, db_user, db_password, db_name]):
+        app.config['SQLALCHEMY_DATABASE_URI'] = f'mysql+pymysql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}'
     else:
-        app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///lustro.db')
+        # Fallback para SQLite (apenas para desenvolvimento/testes)
+        app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////tmp/lustro.db'
     
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-    app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY', 'chave-temporaria-local')
+    app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+        'pool_recycle': 300,
+        'pool_pre_ping': True
+    }
     
-    # Validar configs críticas
-    if not app.config['JWT_SECRET_KEY']:
-        raise ValueError("JWT_SECRET_KEY não definido")
+    # JWT também por variável de ambiente, com fallback para testes
+    app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY', 'chave-temporaria-para-testes-local')
     
     # CORS para frontend
     CORS(app, origins=[
@@ -80,15 +87,14 @@ def create_app():
     # Comando CLI para inicializar o banco
     @app.route('/api/init-db', methods=['POST'])
     def init_database_route():
-        """Rota para inicializar o banco no Vercel"""
+        """Rota para inicializar o banco"""
         try:
             from app.utils.database_init import init_database
             db.create_all()
             init_database()
             return jsonify({
                 'message': '✅ Banco inicializado com sucesso!',
-                'admin': 'admin@gmail.com / admin12345678',
-                'servicos': 'Lavagem Externa, Interna e Completa criados'
+                'next_steps': 'Configure o admin através do painel'
             }), 200
         except Exception as e:
             return jsonify({'error': f'Erro ao inicializar banco: {str(e)}'}), 500
