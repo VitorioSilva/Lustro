@@ -2,10 +2,23 @@ from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app import db
 from app.models import Agendamento, Servico, Veiculo, User, HorarioFuncionamento, Configuracao
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, time
 from app.utils.security import error_response
 
 agendamentos_bp = Blueprint('agendamentos', __name__)
+
+# Função para calcular valor do serviço
+def calcular_valor_servico(preco_base, tipo_veiculo):
+    multiplicadores = {
+        'hatch': 1.0,
+        'sedan': 1.1,
+        'suv': 1.2,
+        'caminhonete': 1.3,
+        'van': 1.4
+    }
+    
+    multiplicador = multiplicadores.get(tipo_veiculo.lower(), 1.0)
+    return round(preco_base * multiplicador, 2)
 
 # Função auxiliar para verificar disponibilidade
 def verificar_disponibilidade(data_agendamento, duracao_minutos):
@@ -17,39 +30,33 @@ def verificar_disponibilidade(data_agendamento, duracao_minutos):
         return False
     
     hora_agendamento = data_agendamento.time()
-    if hora_agendamento < horario_func.hora_abertura or hora_agendamento > horario_func.hora_fechamento:
+    
+    # Verificar se está dentro do horário de funcionamento
+    if hora_agendamento < horario_func.hora_abertura:
+        return False
+    if hora_agendamento > horario_func.hora_fechamento:
         return False
     
     # Verificar conflitos com outros agendamentos
     fim_agendamento = data_agendamento + timedelta(minutes=duracao_minutos)
     
-    # Buscar todos os agendamentos confirmados com seus serviços
-    agendamentos = db.session.query(Agendamento, Servico).join(Servico).filter(
+    # Buscar todos os agendamentos confirmados no mesmo dia
+    agendamentos_do_dia = Agendamento.query.filter(
+        db.func.date(Agendamento.data_agendamento) == data_agendamento.date(),
         Agendamento.status == 'confirmado'
     ).all()
     
-    for agendamento, servico in agendamentos:
-        fim_existente = agendamento.data_agendamento + timedelta(minutes=servico.duracao_minutos)
-        
-        # Verificar se há sobreposição
-        if (data_agendamento < fim_existente and fim_agendamento > agendamento.data_agendamento):
-            return False
+    for agendamento in agendamentos_do_dia:
+        # Obter a duração do serviço do agendamento
+        servico = Servico.query.get(agendamento.servico_id)
+        if servico:
+            fim_existente = agendamento.data_agendamento + timedelta(minutes=servico.duracao_minutos)
+            
+            # Verificar se há sobreposição
+            if (data_agendamento < fim_existente and fim_agendamento > agendamento.data_agendamento):
+                return False
     
     return True
-
-# Função auxiliar para calcular valor com adicional por tipo de veículo
-def calcular_valor_servico(preco_base, tipo_veiculo):
-    # Definir multiplicadores por tipo de veículo
-    multiplicadores = {
-        'hatch': 1.0,
-        'sedan': 1.1,
-        'suv': 1.2,
-        'caminhonete': 1.3,
-        'van': 1.4
-    }
-    
-    multiplicador = multiplicadores.get(tipo_veiculo.lower(), 1.0)
-    return round(preco_base * multiplicador, 2)
 
 # Criar agendamento
 @agendamentos_bp.route('', methods=['POST'])
@@ -73,33 +80,25 @@ def criar_agendamento():
         if not servico:
             return error_response('Serviço não encontrado', 404)
 
-        # Buscar ou criar veículo
-        veiculo = current_user.get_veiculo_by_placa(data['placa_veiculo'])
+        # Buscar veículo do usuário
+        veiculo = Veiculo.query.filter_by(
+            placa=data['placa_veiculo'].upper().replace('-', '').replace(' ', ''), 
+            user_id=user_id
+        ).first()
+        
         if not veiculo:
-            # Criar novo veículo se não existir
-            if 'tipo_veiculo' not in data:
-                return error_response('Tipo do veículo é obrigatório para novo veículo')
-            
-            veiculo = Veiculo(
-                placa=data['placa_veiculo'],
-                tipo=data['tipo_veiculo'],
-                user_id=user_id,
-                marca=data.get('marca'),
-                modelo=data.get('modelo'),
-                cor=data.get('cor')
-            )
-            db.session.add(veiculo)
-            db.session.flush()  # Para obter o ID sem commit
+            return error_response('Veículo não encontrado. Cadastre o veículo primeiro.', 404)
 
-        # Converter string para datetime (remover timezone se existir)
+        # Converter string para datetime
         try:
-            data_agendamento = datetime.fromisoformat(data['data_agendamento'].replace('Z', '+00:00'))
+            data_agendamento_str = data['data_agendamento'].replace('Z', '+00:00')
+            data_agendamento = datetime.fromisoformat(data_agendamento_str)
             # Remover informação de timezone para evitar conflitos
             data_agendamento = data_agendamento.replace(tzinfo=None)
-        except ValueError:
-            return error_response('Formato de data inválido. Use ISO format (ex: 2025-01-01T10:00:00Z)')
+        except ValueError as e:
+            return error_response(f'Formato de data inválido: {str(e)}')
 
-        # Verificar se a data é futura (ambos naive para comparação)
+        # Verificar se a data é futura
         if data_agendamento <= datetime.now():
             return error_response('A data do agendamento deve ser futura', 400)
 
@@ -185,7 +184,6 @@ def cancelar_agendamento(agendamento_id):
         multa_percentual = Configuracao.query.filter_by(chave='multa_cancelamento').first()
         
         if tempo_minimo and multa_percentual:
-            # Usar datetime naive para comparação
             horas_antecedencia = (agendamento.data_agendamento - datetime.now()).total_seconds() / 3600
             if horas_antecedencia < int(tempo_minimo.valor):
                 multa = agendamento.valor_total * (int(multa_percentual.valor) / 100)
@@ -208,9 +206,6 @@ def cancelar_agendamento(agendamento_id):
 @jwt_required()
 def horarios_disponiveis():
     try:
-        # Obter usuário atual
-        current_user = User.query.get(int(get_jwt_identity()))
-        
         data_str = request.args.get('data')
         servico_id = request.args.get('servico_id')
         
@@ -219,9 +214,13 @@ def horarios_disponiveis():
         
         # Converter data
         try:
-            data = datetime.fromisoformat(data_str).date()
+            data = datetime.strptime(data_str, '%Y-%m-%d').date()
         except ValueError:
             return error_response('Formato de data inválido. Use YYYY-MM-DD')
+        
+        # Verificar se a data não é no passado
+        if data < datetime.now().date():
+            return jsonify({'horarios_disponiveis': []})
         
         # Verificar serviço
         servico = Servico.query.get(servico_id)
@@ -236,7 +235,7 @@ def horarios_disponiveis():
             return jsonify({'horarios_disponiveis': []})
         
         # Gerar todos os horários possíveis
-        intervalo = int(Configuracao.query.filter_by(chave='intervalo_agendamento').first().valor or 30)
+        intervalo = 30  # Intervalo fixo de 30 minutos
         horarios_disponiveis = []
         
         hora_atual = horario_func.hora_abertura

@@ -52,13 +52,13 @@ def init_database():
     
     # Horários de funcionamento (dados não sensíveis)
     dias_semana = [
-        {'dia': 'domingo', 'aberto': False, 'nome': 'Domingo'},
-        {'dia': 'segunda', 'aberto': True, 'abertura': time(8,0), 'fechamento': time(18,0), 'nome': 'Segunda'},
-        {'dia': 'terça', 'aberto': True, 'abertura': time(8,0), 'fechamento': time(18,0), 'nome': 'Terça'},
-        {'dia': 'quarta', 'aberto': True, 'abertura': time(8,0), 'fechamento': time(18,0), 'nome': 'Quarta'},
-        {'dia': 'quinta', 'aberto': True, 'abertura': time(8,0), 'fechamento': time(18,0), 'nome': 'Quinta'},
-        {'dia': 'sexta', 'aberto': True, 'abertura': time(8,0), 'fechamento': time(18,0), 'nome': 'Sexta'},
-        {'dia': 'sábado', 'aberto': True, 'abertura': time(8,0), 'fechamento': time(12,0), 'nome': 'Sábado'},
+        {'dia': 0, 'aberto': False, 'nome': 'Domingo'},
+        {'dia': 1, 'aberto': True, 'abertura': time(8,0), 'fechamento': time(18,0), 'nome': 'Segunda'},
+        {'dia': 2, 'aberto': True, 'abertura': time(8,0), 'fechamento': time(18,0), 'nome': 'Terça'},
+        {'dia': 3, 'aberto': True, 'abertura': time(8,0), 'fechamento': time(18,0), 'nome': 'Quarta'},
+        {'dia': 4, 'aberto': True, 'abertura': time(8,0), 'fechamento': time(18,0), 'nome': 'Quinta'},
+        {'dia': 5, 'aberto': True, 'abertura': time(8,0), 'fechamento': time(18,0), 'nome': 'Sexta'},
+        {'dia': 6, 'aberto': True, 'abertura': time(8,0), 'fechamento': time(16,0), 'nome': 'Sábado'},
     ]
     
     for dia_data in dias_semana:

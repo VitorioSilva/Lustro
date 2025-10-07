@@ -130,15 +130,22 @@ class HorarioFuncionamento(db.Model):
     __tablename__ = 'horarios_disponiveis'
     
     id = db.Column('id_horario', db.Integer, primary_key=True)
-    dia_semana = db.Column(db.String(10), nullable=False)  # Ajustado para ENUM
+    dia_semana = db.Column(db.Integer, nullable=False)  # MUDADO para Integer: 0=segunda, 1=terça, etc.
     aberto = db.Column(db.Boolean, default=True)
     hora_abertura = db.Column('hora_inicio', db.Time, default=time(8, 0))
     hora_fechamento = db.Column('hora_fim', db.Time, default=time(18, 0))
     
     def to_dict(self):
+        # Mapear número para nome do dia
+        dias = {
+            0: 'segunda', 1: 'terça', 2: 'quarta', 3: 'quinta',
+            4: 'sexta', 5: 'sábado', 6: 'domingo'
+        }
+        
         return {
             'id': self.id,
             'dia_semana': self.dia_semana,
+            'dia_semana_nome': dias.get(self.dia_semana, ''),
             'aberto': self.aberto,
             'hora_abertura': self.hora_abertura.strftime('%H:%M') if self.hora_abertura else None,
             'hora_fechamento': self.hora_fechamento.strftime('%H:%M') if self.hora_fechamento else None

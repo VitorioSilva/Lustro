@@ -71,6 +71,7 @@ def create_app():
     from app.routes.servicos import servicos_bp
     from app.routes.veiculos import veiculos_bp
     from app.routes.admin import admin_bp
+    from app.routes.admin_dashboard import admin_dashboard_bp
     
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
     app.register_blueprint(users_bp, url_prefix='/api/users')
@@ -78,6 +79,7 @@ def create_app():
     app.register_blueprint(servicos_bp, url_prefix='/api/servicos')
     app.register_blueprint(veiculos_bp, url_prefix='/api/veiculos')
     app.register_blueprint(admin_bp, url_prefix='/api/admin')
+    app.register_blueprint(admin_dashboard_bp, url_prefix='/api/admin/dashboard')
     
     # Rota health check
     @app.route('/')
@@ -118,5 +120,25 @@ def create_app():
                 'database_status': 'NOT_INITIALIZED',
                 'error': str(e)
             }), 500
+#
+    @app.route('/api/debug-db')
+    def debug_database():
+        db_uri = app.config['SQLALCHEMY_DATABASE_URI']
+        db_host = os.getenv('DB_HOST')
+        db_user = os.getenv('DB_USER')
+        
+        return jsonify({
+            'database_uri': '***' + db_uri.split('//')[1].split('@')[-1] if '//' in db_uri else db_uri,
+            'using_mysql': 'mysql' in db_uri,
+            'using_sqlite': 'sqlite' in db_uri,
+            'db_host_configurado': bool(db_host),
+            'db_user_configurado': bool(db_user),
+            'todas_variaveis_presentes': all([
+                os.getenv('DB_HOST'),
+                os.getenv('DB_USER'), 
+                os.getenv('DB_PASSWORD'),
+                os.getenv('DB_NAME')
+            ])
+        })
     
     return app
