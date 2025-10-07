@@ -20,17 +20,18 @@ wheels/
 .installed.cfg
 *.egg
 
-# Virtual Environment
-venv/
+# Environment
+.env
+.venv
 env/
+venv/
+ENV/
+env.bak/
+venv.bak/
 
 # Database
 *.db
 *.sqlite3
-
-# Environment variables
-.env
-.venv
 
 # IDE
 .vscode/
@@ -41,6 +42,11 @@ env/
 # OS
 .DS_Store
 Thumbs.db
-__pycache__/
-instance/
-migrations/
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.temp

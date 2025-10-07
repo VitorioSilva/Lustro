@@ -3,7 +3,7 @@ import re
 from datetime import datetime
 
 def validate_email(email):
-    # Valida se é email Gmail válido
+    # CORREÇÃO: Permitir qualquer email válido
     if not email or not isinstance(email, str):
         return False, "Email deve ser uma string"
     
@@ -12,15 +12,15 @@ def validate_email(email):
     if len(email) > 120:
         return False, "Email muito longo (máx. 120 caracteres)"
     
-    # Pattern para email válido
-    pattern = r'^[a-zA-Z0-9._%+-]+@gmail\.com$'
+    # CORREÇÃO: Pattern para qualquer email válido
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
     if not re.match(pattern, email):
-        return False, "Apenas emails Gmail são permitidos"
+        return False, "Formato de email inválido"
     
-    return True, "Email Gmail válido"
+    return True, "Email válido"
 
+# CORREÇÃO: Senha mais amigável
 def validate_password_strength(password):
-    # Validação profissional de senha
     if not password or not isinstance(password, str):
         return False, "Senha é obrigatória"
     
@@ -30,11 +30,11 @@ def validate_password_strength(password):
     if len(password) > 50:
         return False, "Senha muito longa (máx. 50 caracteres)"
     
-    # Verificar caracteres repetidos (ex: 1111, aaaa)
+    # Verificar caracteres repetidos
     if re.search(r'(.)\1{3,}', password):
         return False, "Senha contém muitos caracteres repetidos"
     
-    # Verificar sequências (ex: 1234, abcd)
+    # Verificar sequências
     sequences = ['1234', '2345', '3456', '4567', '5678', '6789', '7890',
                 'abcd', 'bcde', 'cdef', 'defg', 'efgh', 'fghi', 'ghij',
                 'ijkl', 'jklm', 'klmn', 'lmno', 'mnop', 'nopq', 'opqr',
@@ -50,18 +50,9 @@ def validate_password_strength(password):
     if password_lower in common_passwords:
         return False, "Senha muito comum"
     
-    # Verificar complexidade
-    if not re.search(r'[A-Z]', password):
-        return False, "Senha deve conter pelo menos uma letra maiúscula"
-    
-    if not re.search(r'[a-z]', password):
-        return False, "Senha deve conter pelo menos uma letra minúscula"
-    
+    # CORREÇÃO: Exigências reduzidas
     if not re.search(r'\d', password):
         return False, "Senha deve conter pelo menos um número"
-    
-    if not re.search(r'[!@#$%^&*(),.?":{}|<>]', password):
-        return False, "Senha deve conter pelo menos um caractere especial"
     
     return True, "Senha forte"
 
@@ -98,7 +89,7 @@ def validate_placa(placa):
     return True, "Placa válida"
 
 def validate_name(nome):
-    # Valida nome completo
+    # ✅ CORREÇÃO: Nome mais flexível
     if not nome or not isinstance(nome, str):
         return False, "Nome é obrigatório"
     
@@ -113,7 +104,8 @@ def validate_name(nome):
     if len(nome.split()) < 2:
         return False, "Informe nome completo"
     
-    if not re.match(r'^[a-zA-ZÀ-ÿ\s]+$', nome):
+    # ✅ CORREÇÃO: Permitir números e caracteres comuns
+    if not re.match(r'^[a-zA-ZÀ-ÿ0-9\s\.\-]+$', nome):
         return False, "Nome contém caracteres inválidos"
     
     return True, "Nome válido"

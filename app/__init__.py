@@ -14,17 +14,18 @@ def create_app():
     
     # Configuração TOTALMENTE por variáveis de ambiente
     db_host = os.getenv('DB_HOST')
-    db_port = os.getenv('DB_PORT')
+    db_port = os.getenv('DB_PORT', '3306')
     db_user = os.getenv('DB_USER')
     db_password = os.getenv('DB_PASSWORD')
     db_name = os.getenv('DB_NAME')
     
-    # Verificar se todas as variáveis do MySQL estão configuradas
+    # MELHORIA: Configuração mais robusta
     if all([db_host, db_user, db_password, db_name]):
         app.config['SQLALCHEMY_DATABASE_URI'] = f'mysql+pymysql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}'
+        print("Conectando ao MySQL...")
     else:
-        # Fallback para SQLite (apenas para desenvolvimento/testes)
         app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////tmp/lustro.db'
+        print("Usando SQLite (desenvolvimento)")
     
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
@@ -32,8 +33,16 @@ def create_app():
         'pool_pre_ping': True
     }
     
-    # JWT também por variável de ambiente, com fallback para testes
-    app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY', 'chave-temporaria-para-testes-local')
+    # MELHORIA: JWT mais seguro
+    jwt_secret = os.getenv('JWT_SECRET_KEY')
+    if not jwt_secret:
+        if app.config['SQLALCHEMY_DATABASE_URI'].startswith('sqlite'):
+            jwt_secret = 'chave-temporaria-para-testes-local'
+            print("Usando JWT key temporária (APENAS DESENVOLVIMENTO)")
+        else:
+            raise ValueError("JWT_SECRET_KEY é obrigatória em produção")
+    
+    app.config['JWT_SECRET_KEY'] = jwt_secret
     
     # CORS para frontend
     CORS(app, origins=[
@@ -64,6 +73,10 @@ def create_app():
     def invalid_token_callback(error):
         return jsonify({'error': 'Token de acesso inválido'}), 401
     
+    @jwt.expired_token_loader
+    def expired_token_callback(jwt_header, jwt_data):
+        return jsonify({'error': 'Token expirado'}), 401
+    
     # Registrar blueprints
     from app.routes.auth import auth_bp
     from app.routes.users import users_bp
@@ -84,26 +97,29 @@ def create_app():
     # Rota health check
     @app.route('/')
     def health_check():
-        return jsonify({'status': 'OK', 'message': 'Lustro API running'})
+        return jsonify({
+            'status': 'OK', 
+            'message': 'Lustro API running',
+            'version': '1.0.0'
+        })
     
-    # Comando CLI para inicializar o banco
+    # Rota para inicializar o banco
     @app.route('/api/init-db', methods=['POST'])
     def init_database_route():
-        """Rota para inicializar o banco"""
         try:
             from app.utils.database_init import init_database
             db.create_all()
             init_database()
             return jsonify({
-                'message': '✅ Banco inicializado com sucesso!',
+                'message': 'Banco inicializado com sucesso!',
                 'next_steps': 'Configure o admin através do painel'
             }), 200
         except Exception as e:
             return jsonify({'error': f'Erro ao inicializar banco: {str(e)}'}), 500
 
+    # Rota para verificar status do banco
     @app.route('/api/check-db', methods=['GET'])
     def check_database():
-        """Rota para verificar status do banco"""
         try:
             from app.models import User, Servico
             user_count = User.query.count()
@@ -120,19 +136,17 @@ def create_app():
                 'database_status': 'NOT_INITIALIZED',
                 'error': str(e)
             }), 500
-#
+
     @app.route('/api/debug-db')
     def debug_database():
         db_uri = app.config['SQLALCHEMY_DATABASE_URI']
-        db_host = os.getenv('DB_HOST')
-        db_user = os.getenv('DB_USER')
+        using_mysql = 'mysql' in db_uri
         
         return jsonify({
-            'database_uri': '***' + db_uri.split('//')[1].split('@')[-1] if '//' in db_uri else db_uri,
-            'using_mysql': 'mysql' in db_uri,
-            'using_sqlite': 'sqlite' in db_uri,
-            'db_host_configurado': bool(db_host),
-            'db_user_configurado': bool(db_user),
+            'database_type': 'MySQL' if using_mysql else 'SQLite',
+            'using_production_db': using_mysql,
+            'db_host_configurado': bool(os.getenv('DB_HOST')),
+            'db_user_configurado': bool(os.getenv('DB_USER')),
             'todas_variaveis_presentes': all([
                 os.getenv('DB_HOST'),
                 os.getenv('DB_USER'), 

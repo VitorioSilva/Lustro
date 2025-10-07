@@ -3,7 +3,7 @@ from datetime import datetime, time
 import bcrypt
 
 class User(db.Model):
-    __tablename__ = 'clientes'  # Nome da tabela no MySQL
+    __tablename__ = 'clientes'
     
     id = db.Column('id_cliente', db.Integer, primary_key=True)
     nome = db.Column(db.String(100), nullable=False)
@@ -13,7 +13,6 @@ class User(db.Model):
     created_at = db.Column('data_cadastro', db.DateTime, default=datetime.utcnow)
     is_admin = db.Column(db.Boolean, default=False)
     
-    # Relacionamentos - ajustar para as novas tabelas
     agendamentos = db.relationship('Agendamento', backref='cliente', lazy=True, cascade='all, delete-orphan')
     veiculos = db.relationship('Veiculo', backref='dono', lazy=True, cascade='all, delete-orphan')
     
@@ -41,11 +40,10 @@ class Veiculo(db.Model):
     marca = db.Column(db.String(50))
     modelo = db.Column(db.String(50))
     cor = db.Column(db.String(30))
-    tipo = db.Column(db.String(50), nullable=False)  # Ajustado para VARCHAR(50)
+    tipo = db.Column(db.String(50), nullable=False)
     user_id = db.Column('id_cliente', db.Integer, db.ForeignKey('clientes.id_cliente'), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
-    # Relacionamentos
     agendamentos = db.relationship('Agendamento', backref='veiculo', lazy=True, cascade='all, delete-orphan')
     
     def to_dict(self):
@@ -91,7 +89,6 @@ class Agendamento(db.Model):
     observacoes = db.Column(db.Text)
     created_at = db.Column('data_criacao', db.DateTime, default=datetime.utcnow)
     
-    # Chaves estrangeiras
     user_id = db.Column('id_cliente', db.Integer, db.ForeignKey('clientes.id_cliente'), nullable=False)
     veiculo_id = db.Column('id_veiculo', db.Integer, db.ForeignKey('veiculos.id_veiculo'), nullable=False)
     servico_id = db.Column('id_tipo', db.Integer, db.ForeignKey('tipos_lavagem.id_tipo'), nullable=False)
@@ -130,13 +127,12 @@ class HorarioFuncionamento(db.Model):
     __tablename__ = 'horarios_disponiveis'
     
     id = db.Column('id_horario', db.Integer, primary_key=True)
-    dia_semana = db.Column(db.Integer, nullable=False)  # MUDADO para Integer: 0=segunda, 1=terça, etc.
+    dia_semana = db.Column(db.Integer, nullable=False)
     aberto = db.Column(db.Boolean, default=True)
     hora_abertura = db.Column('hora_inicio', db.Time, default=time(8, 0))
     hora_fechamento = db.Column('hora_fim', db.Time, default=time(18, 0))
     
     def to_dict(self):
-        # Mapear número para nome do dia
         dias = {
             0: 'segunda', 1: 'terça', 2: 'quarta', 3: 'quinta',
             4: 'sexta', 5: 'sábado', 6: 'domingo'
@@ -150,17 +146,3 @@ class HorarioFuncionamento(db.Model):
             'hora_abertura': self.hora_abertura.strftime('%H:%M') if self.hora_abertura else None,
             'hora_fechamento': self.hora_fechamento.strftime('%H:%M') if self.hora_fechamento else None
         }
-
-class Administrador(db.Model):
-    __tablename__ = 'administradores'
-    
-    id = db.Column('id_admin', db.Integer, primary_key=True)
-    nome = db.Column(db.String(100), nullable=False)
-    email = db.Column(db.String(100), unique=True, nullable=False)
-    senha_hash = db.Column('senha', db.String(255), nullable=False)
-    
-    def set_password(self, password):
-        self.senha_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-    
-    def check_password(self, password):
-        return bcrypt.checkpw(password.encode('utf-8'), self.senha_hash.encode('utf-8'))
