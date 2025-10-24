@@ -14,7 +14,7 @@ def create_app():
     
     # Configuração TOTALMENTE por variáveis de ambiente
     db_host = os.getenv('DB_HOST')
-    db_port = os.getenv('DB_PORT', '3306')
+    db_port = os.getenv('DB_PORT')
     db_user = os.getenv('DB_USER')
     db_password = os.getenv('DB_PASSWORD')
     db_name = os.getenv('DB_NAME')
@@ -45,7 +45,11 @@ def create_app():
     app.config['JWT_SECRET_KEY'] = jwt_secret
     
     # CORS para frontend
-    CORS(app)
+    CORS(app, origins=[
+        "http://localhost:3000",
+        "https://*.vercel.app",
+        "http://localhost:5173",
+        "https://lustro-brown.vercel.app/"])
     
     # Inicializar extensões
     db.init_app(app)

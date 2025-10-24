@@ -89,7 +89,7 @@ def validate_placa(placa):
     return True, "Placa válida"
 
 def validate_name(nome):
-    # ✅ CORREÇÃO: Nome mais flexível
+    # CORREÇÃO: Nome mais flexível
     if not nome or not isinstance(nome, str):
         return False, "Nome é obrigatório"
     
@@ -104,7 +104,7 @@ def validate_name(nome):
     if len(nome.split()) < 2:
         return False, "Informe nome completo"
     
-    # ✅ CORREÇÃO: Permitir números e caracteres comuns
+    # CORREÇÃO: Permitir números e caracteres comuns
     if not re.match(r'^[a-zA-ZÀ-ÿ0-9\s\.\-]+$', nome):
         return False, "Nome contém caracteres inválidos"
     
