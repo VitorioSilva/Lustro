@@ -45,11 +45,7 @@ def create_app():
     app.config['JWT_SECRET_KEY'] = jwt_secret
     
     # CORS para frontend
-    CORS(app, origins=[
-        "http://localhost:3000",
-        "https://*.vercel.app",
-        "https://*.now.sh"
-    ])
+    CORS(app)
     
     # Inicializar extensões
     db.init_app(app)
