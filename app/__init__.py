@@ -11,14 +11,14 @@ migrate = Migrate()
 
 def create_app():
     app = Flask(__name__)
-    
+
     # Configuração TOTALMENTE por variáveis de ambiente
     db_host = os.getenv('DB_HOST')
     db_port = os.getenv('DB_PORT')
     db_user = os.getenv('DB_USER')
     db_password = os.getenv('DB_PASSWORD')
     db_name = os.getenv('DB_NAME')
-    
+
     # MELHORIA: Configuração mais robusta
     if all([db_host, db_user, db_password, db_name]):
         app.config['SQLALCHEMY_DATABASE_URI'] = f'mysql+pymysql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}'
@@ -26,13 +26,13 @@ def create_app():
     else:
         app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////tmp/lustro.db'
         print("Usando SQLite (desenvolvimento)")
-    
+
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
         'pool_recycle': 300,
         'pool_pre_ping': True
     }
-    
+
     # MELHORIA: JWT mais seguro
     jwt_secret = os.getenv('JWT_SECRET_KEY')
     if not jwt_secret:
@@ -41,42 +41,50 @@ def create_app():
             print("Usando JWT key temporária (APENAS DESENVOLVIMENTO)")
         else:
             raise ValueError("JWT_SECRET_KEY é obrigatória em produção")
-    
+
     app.config['JWT_SECRET_KEY'] = jwt_secret
-    
+
     # CORS para frontend
     CORS(app, origins=[
         "http://localhost:3000",
         "https://*.vercel.app",
         "http://localhost:5173",
-        "https://lustro-brown.vercel.app/"])
-    
+        "https://lustro-brown.vercel.app"])
+
     # Inicializar extensões
     db.init_app(app)
     jwt.init_app(app)
     migrate.init_app(app, db)
-    
+
     # Configurar user loader para JWT
-    from app.models import User
-    
+    from app.models import User, Administrador
+
     @jwt.user_lookup_loader
     def user_lookup_callback(_jwt_header, jwt_data):
         identity = jwt_data["sub"]
-        return User.query.get(int(identity))
-    
+        
+        # Primeiro tenta encontrar como User
+        user = User.query.get(int(identity))
+        if user:
+            return user
+            
+        # Se não encontrou, tenta como Administrador
+        admin = Administrador.query.get(int(identity))
+        return admin
+
     # Handlers de erro JWT
     @jwt.unauthorized_loader
     def unauthorized_callback(error):
         return jsonify({'error': 'Token de acesso não fornecido'}), 401
-    
+
     @jwt.invalid_token_loader
     def invalid_token_callback(error):
         return jsonify({'error': 'Token de acesso inválido'}), 401
-    
+
     @jwt.expired_token_loader
     def expired_token_callback(jwt_header, jwt_data):
         return jsonify({'error': 'Token expirado'}), 401
-    
+
     # Registrar blueprints
     from app.routes.auth import auth_bp
     from app.routes.users import users_bp
@@ -85,7 +93,8 @@ def create_app():
     from app.routes.veiculos import veiculos_bp
     from app.routes.admin import admin_bp
     from app.routes.admin_dashboard import admin_dashboard_bp
-    
+    from app.routes.modelos_veiculo import modelos_bp
+
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
     app.register_blueprint(users_bp, url_prefix='/api/users')
     app.register_blueprint(agendamentos_bp, url_prefix='/api/agendamentos')
@@ -93,7 +102,8 @@ def create_app():
     app.register_blueprint(veiculos_bp, url_prefix='/api/veiculos')
     app.register_blueprint(admin_bp, url_prefix='/api/admin')
     app.register_blueprint(admin_dashboard_bp, url_prefix='/api/admin/dashboard')
-    
+    app.register_blueprint(modelos_bp, url_prefix='/api/modelos-veiculo')
+
     # Rota health check
     @app.route('/')
     def health_check():
@@ -102,7 +112,7 @@ def create_app():
             'message': 'Lustro API running',
             'version': '1.0.0'
         })
-    
+
     # Rota para inicializar o banco
     @app.route('/api/init-db', methods=['POST'])
     def init_database_route():
@@ -124,7 +134,7 @@ def create_app():
             from app.models import User, Servico
             user_count = User.query.count()
             servico_count = Servico.query.count()
-            
+
             return jsonify({
                 'database_status': 'OK',
                 'users_count': user_count,
@@ -141,7 +151,7 @@ def create_app():
     def debug_database():
         db_uri = app.config['SQLALCHEMY_DATABASE_URI']
         using_mysql = 'mysql' in db_uri
-        
+
         return jsonify({
             'database_type': 'MySQL' if using_mysql else 'SQLite',
             'using_production_db': using_mysql,
@@ -154,5 +164,5 @@ def create_app():
                 os.getenv('DB_NAME')
             ])
         })
-    
+
     return app

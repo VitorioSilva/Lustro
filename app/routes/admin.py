@@ -1,157 +1,124 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app import db
-from app.models import HorarioFuncionamento, Configuracao, User
+from app.models import HorarioFuncionamento, User, Administrador
 from app.utils.security import error_response
 from datetime import time
 
 admin_bp = Blueprint('admin', __name__)
 
-def inicializar_horarios_padrao():
-    # Inicializa horários padrão se a tabela estiver vazia
-    if HorarioFuncionamento.query.count() == 0:
-        horarios_padrao = [
-            (0, True, time(8, 0), time(18, 0)),  # Segunda
-            (1, True, time(8, 0), time(18, 0)),  # Terça
-            (2, True, time(8, 0), time(18, 0)),  # Quarta
-            (3, True, time(8, 0), time(18, 0)),  # Quinta
-            (4, True, time(8, 0), time(18, 0)),  # Sexta
-            (5, True, time(8, 0), time(16, 0)),  # Sábado
-            (6, False, time(8, 0), time(18, 0))  # Domingo
-        ]
-        
-        for dia, aberto, abertura, fechamento in horarios_padrao:
-            horario = HorarioFuncionamento(
-                dia_semana=dia,
-                aberto=aberto,
-                hora_abertura=abertura,
-                hora_fechamento=fechamento
-            )
-            db.session.add(horario)
-        
-        db.session.commit()
+def is_admin(user_id):
+    """Verifica se o usuário é admin"""
+    # Primeiro tenta encontrar como User (se tiver campo is_admin)
+    user = User.query.get(user_id)
+    if user and hasattr(user, 'is_admin') and user.is_admin:
         return True
-    return False
-
-def inicializar_configuracoes_padrao():
-    # Inicializa configurações padrão
-    if Configuracao.query.count() == 0:
-        configs_padrao = [
-            ('tempo_minimo_cancelamento', '24', 'Horas mínimas para cancelamento sem multa'),
-            ('multa_cancelamento', '20', 'Percentual de multa por cancelamento tardio'),
-            ('intervalo_agendamento', '30', 'Intervalo entre agendamentos em minutos')
-        ]
-        
-        for chave, valor, descricao in configs_padrao:
-            config = Configuracao(
-                chave=chave,
-                valor=valor,
-                descricao=descricao
-            )
-            db.session.add(config)
-        
-        db.session.commit()
-        return True
-    return False
-
-def validar_horario_funcionamento(hora_abertura, hora_fechamento, aberto):
-    if not aberto:
-        return True, "Dia fechado"
     
-    if hora_abertura >= hora_fechamento:
-        return False, "Horário de abertura deve ser anterior ao fechamento"
-    
-    if hora_abertura < time(0, 0) or hora_fechamento > time(23, 59):
-        return False, "Horários devem estar entre 00:00 e 23:59"
-    
-    return True, "Horário válido"
+    # Se não, verifica se é Administrador
+    admin = Administrador.query.get(user_id)
+    return admin is not None
 
 @admin_bp.route('/horarios-funcionamento', methods=['GET', 'PUT'])
 @jwt_required()
 def gerenciar_horarios_funcionamento():
     try:
-        current_user = User.query.get(int(get_jwt_identity()))
-        if not current_user.is_admin:
-            return error_response('Acesso não autorizado', 403)
+        current_user_id = get_jwt_identity()
         
-        # Inicializar horários se necessário
-        if HorarioFuncionamento.query.count() == 0:
-            inicializar_horarios_padrao()
-            
+        if not is_admin(current_user_id):
+            return error_response('Acesso não autorizado', 403)
+
         if request.method == 'GET':
             horarios = HorarioFuncionamento.query.order_by(HorarioFuncionamento.dia_semana.asc()).all()
             return jsonify({'horarios': [h.to_dict() for h in horarios]}), 200
-            
+
         elif request.method == 'PUT':
             data = request.get_json()
-            
+
+            if not isinstance(data, list):
+                return error_response('Dados devem ser uma lista de horários')
+
             for dia_data in data:
                 horario = HorarioFuncionamento.query.filter_by(dia_semana=dia_data['dia_semana']).first()
-                
+
                 if not horario:
                     horario = HorarioFuncionamento(dia_semana=dia_data['dia_semana'])
                     db.session.add(horario)
+
+                horario.aberto = dia_data.get('aberto', False)
                 
-                # Validar horários
-                if dia_data.get('aberto', False):
+                if horario.aberto:
+                    if not dia_data.get('hora_abertura') or not dia_data.get('hora_fechamento'):
+                        return error_response(f'Horários são obrigatórios para dia {dia_data["dia_semana"]} quando aberto')
+                    
                     hora_abertura = time.fromisoformat(dia_data['hora_abertura'])
                     hora_fechamento = time.fromisoformat(dia_data['hora_fechamento'])
-                    
-                    is_valid, message = validar_horario_funcionamento(
-                        hora_abertura, hora_fechamento, dia_data['aberto']
-                    )
-                    if not is_valid:
-                        return error_response(f'Dia {dia_data["dia_semana"]}: {message}')
-                
-                horario.aberto = dia_data.get('aberto', False)
-                if horario.aberto:
-                    horario.hora_abertura = time.fromisoformat(dia_data['hora_abertura'])
-                    horario.hora_fechamento = time.fromisoformat(dia_data['hora_fechamento'])
-            
+
+                    if hora_abertura >= hora_fechamento:
+                        return error_response(f'Horário de abertura deve ser anterior ao fechamento no dia {dia_data["dia_semana"]}')
+
+                    horario.hora_abertura = hora_abertura
+                    horario.hora_fechamento = hora_fechamento
+                else:
+                    horario.hora_abertura = None
+                    horario.hora_fechamento = None
+
             db.session.commit()
-            return jsonify({'message': 'Horários atualizados com sucesso'}), 200
             
+            # Retornar horários atualizados
+            horarios = HorarioFuncionamento.query.order_by(HorarioFuncionamento.dia_semana.asc()).all()
+            return jsonify({
+                'message': 'Horários atualizados com sucesso',
+                'horarios': [h.to_dict() for h in horarios]
+            }), 200
+
     except Exception as e:
         db.session.rollback()
         return error_response(f'Erro interno do servidor: {str(e)}', 500)
 
-@admin_bp.route('/configuracoes', methods=['GET', 'PUT'])
+@admin_bp.route('/agendamentos/buscar', methods=['GET'])
 @jwt_required()
-def gerenciar_configuracoes():
+def buscar_agendamentos_placa():
     try:
-        current_user = User.query.get(int(get_jwt_identity()))
-        if not current_user.is_admin:
-            return error_response('Acesso não autorizado', 403)
+        current_user_id = get_jwt_identity()
         
-        # Inicializar configurações se necessário
-        if Configuracao.query.count() == 0:
-            inicializar_configuracoes_padrao()
+        if not is_admin(current_user_id):
+            return error_response('Acesso não autorizado', 403)
+
+        placa = request.args.get('placa', '').upper().replace('-', '').replace(' ', '')
+
+        if not placa or len(placa) < 3:
+            return error_response('Informe pelo menos 3 caracteres da placa')
+
+        from app.models import Agendamento, Veiculo, Servico, User, ModeloVeiculo
+
+        agendamentos = Agendamento.query.join(Veiculo).filter(
+            Veiculo.placa.like(f'%{placa}%')
+        ).order_by(Agendamento.data_agendamento.desc(), Agendamento.horario_agendamento.desc()).limit(50).all()
+
+        agendamentos_enriquecidos = []
+        for ag in agendamentos:
+            ag_dict = ag.to_dict()
+            veiculo = Veiculo.query.get(ag.veiculo_id)
+            servico = Servico.query.get(ag.servico_id)
+            usuario = User.query.get(ag.user_id)
             
-        if request.method == 'GET':
-            configuracoes = Configuracao.query.all()
-            return jsonify({'configuracoes': [c.to_dict() for c in configuracoes]}), 200
-            
-        elif request.method == 'PUT':
-            data = request.get_json()
-            
-            for config_data in data:
-                config = Configuracao.query.filter_by(chave=config_data['chave']).first()
-                
-                if not config:
-                    config = Configuracao(
-                        chave=config_data['chave'],
-                        valor=config_data['valor'],
-                        descricao=config_data.get('descricao', '')
-                    )
-                    db.session.add(config)
-                else:
-                    config.valor = config_data['valor']
-                    if 'descricao' in config_data:
-                        config.descricao = config_data['descricao']
-            
-            db.session.commit()
-            return jsonify({'message': 'Configurações atualizadas com sucesso'}), 200
-            
+            # CORREÇÃO: Buscar modelo separadamente
+            modelo_veiculo = ModeloVeiculo.query.get(veiculo.modelo_veiculo_id) if veiculo else None
+
+            ag_dict.update({
+                'cliente_nome': usuario.nome if usuario else 'N/A',
+                'cliente_telefone': usuario.telefone if usuario else 'N/A',
+                'veiculo_placa': veiculo.placa if veiculo else 'N/A',
+                'modelo_veiculo_nome': modelo_veiculo.nome if modelo_veiculo else 'N/A',  # CORREÇÃO
+                'nome_proprietario': veiculo.nome_proprietario if veiculo else 'N/A',
+                'servico_nome': servico.nome if servico else 'N/A'
+            })
+            agendamentos_enriquecidos.append(ag_dict)
+
+        return jsonify({
+            'agendamentos': agendamentos_enriquecidos,
+            'total_encontrado': len(agendamentos_enriquecidos)
+        }), 200
+
     except Exception as e:
-        db.session.rollback()
         return error_response(f'Erro interno do servidor: {str(e)}', 500)
