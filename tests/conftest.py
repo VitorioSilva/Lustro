@@ -20,7 +20,7 @@ def auth_headers(token):
 
 @pytest.fixture
 def token(admin_credentials):
-    """Fixture para obter token de admin para testes"""
+    # Fixture para obter token de admin para testes
     import requests
     response = requests.post(f"{BASE_URL}/api/auth/login", json=admin_credentials)
     if response.status_code == 200:

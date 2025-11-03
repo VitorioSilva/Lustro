@@ -1,16 +1,14 @@
 import requests
 import pytest
 
-class TestServicos:
-    """Testes dos serviços disponíveis"""
-    
+class TestServicos:    
     @pytest.fixture
     def base_url(self):
         return "http://localhost:5000"
     
     @pytest.fixture
     def admin_token(self, base_url):
-        """Obtém token de administrador"""
+        # Obtém token de administrador
         data = {
             "email": "admin@lustro.com",
             "senha": "admin123"
@@ -19,7 +17,7 @@ class TestServicos:
         return response.json()['access_token']
     
     def test_listar_servicos_publico(self, base_url):
-        """Testa listagem de serviços (acesso público)"""
+        # Testa listagem de serviços (acesso público)
         response = requests.get(f"{base_url}/api/servicos")
         
         assert response.status_code == 200
@@ -36,7 +34,7 @@ class TestServicos:
         print("✅ Listar Serviços Público - Serviços listados com sucesso")
     
     def test_servicos_possuem_precos(self, base_url):
-        """Testa se os serviços possuem preços definidos"""
+        # Testa se os serviços possuem preços definidos
         response = requests.get(f"{base_url}/api/servicos")
         
         assert response.status_code == 200
@@ -51,7 +49,7 @@ class TestServicos:
         print("✅ Serviços com Preços - Todos têm preço e duração definidos")
     
     def test_detalhes_servicos(self, base_url):
-        """Testa se os serviços possuem descrições"""
+        # Testa se os serviços possuem descrições
         response = requests.get(f"{base_url}/api/servicos")
         
         assert response.status_code == 200
@@ -66,7 +64,7 @@ class TestServicos:
         print("✅ Detalhes Serviços - Todos têm descrição completa")
     
     def test_servicos_ativos(self, base_url):
-        """Testa se apenas serviços ativos são listados"""
+        # Testa se apenas serviços ativos são listados
         response = requests.get(f"{base_url}/api/servicos")
         
         assert response.status_code == 200

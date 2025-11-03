@@ -1,15 +1,13 @@
 import requests
 import pytest
 
-class TestModelosVeiculo:
-    """Testes dos modelos de veículo disponíveis"""
-    
+class TestModelosVeiculo:    
     @pytest.fixture
     def base_url(self):
         return "http://localhost:5000"
     
     def test_listar_modelos_veiculo(self, base_url):
-        """Testa listagem de modelos de veículo (acesso público)"""
+        # Testa listagem de modelos de veículo (acesso público)
         response = requests.get(f"{base_url}/api/modelos-veiculo")
         
         assert response.status_code == 200
@@ -20,7 +18,7 @@ class TestModelosVeiculo:
         print(f"✅ Listar Modelos Veículo - {len(result['modelos'])} modelos encontrados")
     
     def test_modelos_veiculo_estrutura(self, base_url):
-        """Testa se os modelos possuem estrutura correta"""
+        # Testa se os modelos possuem estrutura correta
         response = requests.get(f"{base_url}/api/modelos-veiculo")
         
         assert response.status_code == 200
@@ -35,7 +33,7 @@ class TestModelosVeiculo:
         print("✅ Estrutura Modelos - Todos têm ID e nome válidos")
     
     def test_modelos_veiculo_unicos(self, base_url):
-        """Testa se os modelos são únicos"""
+        # Testa se os modelos são únicos
         response = requests.get(f"{base_url}/api/modelos-veiculo")
         
         assert response.status_code == 200
@@ -48,7 +46,7 @@ class TestModelosVeiculo:
         print("✅ Modelos Únicos - Não há modelos duplicados")
     
     def test_modelos_veiculo_esperados(self, base_url):
-        """Testa se os modelos esperados estão presentes"""
+        # Testa se os modelos esperados estão presentes
         response = requests.get(f"{base_url}/api/modelos-veiculo")
         
         assert response.status_code == 200

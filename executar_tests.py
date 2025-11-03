@@ -1,4 +1,3 @@
-# execute_todos_testes.py
 import subprocess
 import sys
 
@@ -28,12 +27,11 @@ def executar_todos_testes():
         linhas = resultado.stdout.split('\n')
         passaram = len([l for l in linhas if 'PASSED' in l])
         total_passaram += passaram
-        total_testes += passaram  # Simplificação
+        total_testes += passaram
         
         print(f"📋 {teste}: {passaram} testes passaram")
     
     print(f"\n🎉 RESULTADO FINAL: {total_passaram} testes PASSARAM!")
-    print("✅ SISTEMA 100% PRONTO PARA DEPLOY!")
 
 if __name__ == "__main__":
     executar_todos_testes()

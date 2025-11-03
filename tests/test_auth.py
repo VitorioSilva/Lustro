@@ -2,20 +2,18 @@ import requests
 import pytest
 import random
 
-class TestAuthentication:
-    """Testes de autenticação - Login e Cadastro"""
-    
+class TestAuthentication:    
     @pytest.fixture
     def base_url(self):
         return "http://localhost:5000"
     
     @pytest.fixture
     def unique_email(self):
-        """Gera um email único para cada teste"""
+        # Gera um email único para cada teste
         return f"teste_{random.randint(10000, 99999)}@email.com"
     
     def test_login_admin(self, base_url):
-        """Testa login do administrador"""
+        # Testa login do administrador
         data = {
             "email": "admin@lustro.com",
             "senha": "Admin@007"
@@ -29,7 +27,7 @@ class TestAuthentication:
         print("✅ Login Admin - Administrador autenticado com sucesso")
     
     def test_cadastro_usuario(self, base_url, unique_email):
-        """Testa cadastro de novo usuário"""
+        # Testa cadastro de novo usuário
         data = {
             "nome": "Usuário Teste",
             "email": unique_email,
@@ -46,7 +44,7 @@ class TestAuthentication:
         print("✅ Cadastro Usuário - Usuário criado com sucesso")
     
     def test_login_usuario(self, base_url, unique_email):
-        """Testa login de usuário comum"""
+        # Testa login de usuário comum
         # Primeiro cadastra o usuário
         cadastro_data = {
             "nome": "Usuário Login Teste",
@@ -70,7 +68,7 @@ class TestAuthentication:
         print("✅ Login Usuário - Usuário autenticado com sucesso")
     
     def test_login_credenciais_invalidas(self, base_url):
-        """Testa login com credenciais inválidas"""
+        # Testa login com credenciais inválidas
         data = {
             "email": "email_inexistente@teste.com",
             "senha": "senha_errada"

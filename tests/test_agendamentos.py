@@ -3,16 +3,14 @@ import pytest
 import random
 from datetime import datetime, timedelta
 
-class TestAgendamentos:
-    """Testes do sistema de agendamentos"""
-    
+class TestAgendamentos:    
     @pytest.fixture
     def base_url(self):
         return "http://localhost:5000"
     
     @pytest.fixture
     def user_token(self, base_url):
-        """Cria um usuário e retorna o token"""
+        # Cria um usuário e retorna o token
         email = f"user_agendamento_{random.randint(10000, 99999)}@teste.com"
         
         # Cadastra usuário
@@ -28,7 +26,7 @@ class TestAgendamentos:
     
     @pytest.fixture
     def admin_token(self, base_url):
-        """Obtém token de administrador"""
+        # Obtém token de administrador
         data = {
             "email": "admin@lustro.com",
             "senha": "Admin@007"
@@ -38,18 +36,18 @@ class TestAgendamentos:
     
     @pytest.fixture
     def servico_id(self, base_url):
-        """Obtém o ID do primeiro serviço disponível"""
+        # Obtém o ID do primeiro serviço disponível
         response = requests.get(f"{base_url}/api/servicos")
         return response.json()['servicos'][0]['id']
     
     @pytest.fixture
     def modelo_veiculo_id(self, base_url):
-        """Obtém o ID do primeiro modelo de veículo"""
+        # Obtém o ID do primeiro modelo de veículo
         response = requests.get(f"{base_url}/api/modelos-veiculo")
         return response.json()['modelos'][0]['id']
     
     def test_horarios_disponiveis(self, base_url, user_token, servico_id):
-        """Testa consulta de horários disponíveis"""
+        # Testa consulta de horários disponíveis
         headers = {"Authorization": f"Bearer {user_token}"}
         
         # Data futura para teste
@@ -74,11 +72,11 @@ class TestAgendamentos:
         print(f"✅ Horários Disponíveis - {len(result['horarios_disponiveis'])} horários encontrados")
     
     def test_criar_agendamento(self, base_url, user_token, servico_id, modelo_veiculo_id):
-        """Testa criação de agendamento"""
+        # Testa criação de agendamento
         headers = {"Authorization": f"Bearer {user_token}"}
         
         # Data futura para teste
-        data_futura = (datetime.now() + timedelta(days=7)).strftime('%Y-%m-%d')
+        data_futura = (datetime.now() + timedelta(days=3)).strftime('%Y-%m-%d')
         
         # Obter um horário realmente disponível antes de agendar
         params = {"data": data_futura, "servico_id": servico_id}
@@ -90,7 +88,7 @@ class TestAgendamentos:
 
         agendamento_data = {
             "data_agendamento": data_futura,
-            "horario_agendamento": horarios_disponiveis[0],  # ✅ usa um horário real
+            "horario_agendamento": horarios_disponiveis[0],
             "servico_id": servico_id,
             "placa": f"ABC{random.randint(1000, 9999)}",
             "nome_proprietario": "Proprietário Teste",
@@ -112,10 +110,9 @@ class TestAgendamentos:
         assert result['agendamento']['status'] == 'confirmado'
         
         print(f"✅ Criar Agendamento - Agendamento {result['agendamento']['id']} criado com sucesso")
-        return result['agendamento']['id']
     
     def test_listar_agendamentos_usuario(self, base_url, user_token):
-        """Testa listagem de agendamentos do usuário"""
+        # Testa listagem de agendamentos do usuário
         headers = {"Authorization": f"Bearer {user_token}"}
         
         response = requests.get(f"{base_url}/api/agendamentos", headers=headers)
@@ -128,7 +125,7 @@ class TestAgendamentos:
         print(f"✅ Listar Agendamentos Usuário - {len(result['agendamentos'])} agendamentos encontrados")
     
     def test_listar_agendamentos_admin(self, base_url, admin_token):
-        """Testa listagem de todos os agendamentos (admin)"""
+        # Testa listagem de todos os agendamentos (admin)
         headers = {"Authorization": f"Bearer {admin_token}"}
         
         response = requests.get(f"{base_url}/api/admin/dashboard/agendamentos", headers=headers)
@@ -141,7 +138,7 @@ class TestAgendamentos:
         print(f"✅ Listar Agendamentos Admin - {len(result['agendamentos'])} agendamentos encontrados")
     
     def test_agendamentos_estrutura(self, base_url, user_token):
-        """Testa se os agendamentos possuem estrutura completa"""
+        # Testa se os agendamentos possuem estrutura completa
         headers = {"Authorization": f"Bearer {user_token}"}
         
         response = requests.get(f"{base_url}/api/agendamentos", headers=headers)

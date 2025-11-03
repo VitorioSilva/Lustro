@@ -165,7 +165,7 @@ class TestSistemaCompleto:
         print("✅ Agendamento Concluído - Status atualizado com sucesso")
     
     def test_agendamentos_hoje_admin(self, base_url, admin_token):
-        """Testa visualização de agendamentos de hoje pelo admin"""
+        # Testa visualização de agendamentos de hoje pelo admin
         headers = {"Authorization": f"Bearer {admin_token}"}
         
         response = requests.get(
@@ -179,7 +179,7 @@ class TestSistemaCompleto:
         print(f"✅ Agendamentos Hoje - {len(result['agendamentos'])} agendamento(s) para hoje")
     
     def test_estatisticas_admin(self, base_url, admin_token):
-        """Testa dashboard de estatísticas do admin"""
+        # Testa dashboard de estatísticas do admin
         headers = {"Authorization": f"Bearer {admin_token}"}
         
         response = requests.get(

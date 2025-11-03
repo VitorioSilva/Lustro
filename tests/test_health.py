@@ -1,11 +1,9 @@
 import requests
 import pytest
 
-class TestHealthCheck:
-    """Testes mais básicos - Health Check do sistema"""
-    
+class TestHealthCheck:    
     def test_health_check(self):
-        """Testa se a API está respondendo"""
+        # Testa se a API está respondendo
         BASE_URL = "http://localhost:5000"
         response = requests.get(f"{BASE_URL}/")
         
@@ -16,7 +14,7 @@ class TestHealthCheck:
         print("✅ Health Check - API respondendo corretamente")
     
     def test_database_status(self):
-        """Testa se o banco de dados está conectado"""
+        # Testa se o banco de dados está conectado
         BASE_URL = "http://localhost:5000"
         response = requests.get(f"{BASE_URL}/api/check-db")
         
