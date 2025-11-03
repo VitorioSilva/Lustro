@@ -4,7 +4,7 @@ from app import db
 from app.models import Agendamento, User, Veiculo, Servico, HorarioFuncionamento, Administrador
 from datetime import datetime, date, timedelta
 from app.utils.security import error_response
-from app.routes.modelos_veiculo import ModeloVeiculo
+from app.models import ModeloVeiculo
 
 admin_dashboard_bp = Blueprint('admin_dashboard', __name__)
 

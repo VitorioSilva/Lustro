@@ -99,6 +99,8 @@ class Veiculo(db.Model):
     telefone = db.Column(db.String(20), nullable=False)
     criado_em = db.Column(db.TIMESTAMP, server_default=db.func.current_timestamp())
     atualizado_em = db.Column(db.TIMESTAMP, server_default=db.func.current_timestamp(), onupdate=db.func.current_timestamp())
+    modelo = db.relationship('ModeloVeiculo', backref='veiculos', lazy='joined')
+
 
     def to_dict(self):
         return {
