@@ -2,7 +2,7 @@ from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app import db
 from app.models import Agendamento, Servico, Veiculo, User, HorarioFuncionamento, ModeloVeiculo
-from datetime import datetime, timedelta, time, date
+from datetime import datetime, timedelta, date
 from app.utils.security import error_response, validate_placa
 
 agendamentos_bp = Blueprint('agendamentos', __name__)

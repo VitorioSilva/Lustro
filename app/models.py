@@ -1,5 +1,4 @@
 from app import db
-from datetime import datetime, time
 import bcrypt
 
 class Administrador(db.Model):

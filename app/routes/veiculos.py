@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app import db
-from app.models import Veiculo, User, ModeloVeiculo, Agendamento
+from app.models import Veiculo, ModeloVeiculo, Agendamento
 from app.utils.security import validate_placa, error_response
 from datetime import datetime
 

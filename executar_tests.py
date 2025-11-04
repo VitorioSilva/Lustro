@@ -1,5 +1,4 @@
 import subprocess
-import sys
 
 def executar_todos_testes():
     print("🚀 EXECUTANDO SUITE COMPLETA DE TESTES...")

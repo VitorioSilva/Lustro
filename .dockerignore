@@ -1,0 +1,16 @@
+.git
+.github
+.venv
+venv
+.env
+*.pyc
+__pycache__
+.DS_Store
+.coverage
+.pytest_cache
+Dockerfile
+.dockerignore
+README.md
+LICENSE
+tests/
+vercel.json

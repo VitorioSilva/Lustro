@@ -1,5 +1,4 @@
 import requests
-import pytest
 
 class TestHealthCheck:    
     def test_health_check(self):

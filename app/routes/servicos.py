@@ -7,7 +7,7 @@ from app.utils.security import error_response
 servicos_bp = Blueprint('servicos', __name__)
 
 def is_admin(user_id):
-    """Verifica se o usuário é admin"""
+    # Verifica se o usuário é admin
     user = User.query.get(user_id)
     if user and hasattr(user, 'is_admin') and user.is_admin:
         return True
