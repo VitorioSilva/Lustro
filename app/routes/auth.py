@@ -1,10 +1,13 @@
 from flask import Blueprint, request, jsonify
-from flask_jwt_extended import create_access_token
+from flask_jwt_extended import create_access_token, jwt_required, get_jwt, JWTManager
 from app import db
 from app.models import User, Administrador
 from app.utils.security import validate_email, validate_password_strength, validate_name, error_response
 
 auth_bp = Blueprint('auth', __name__)
+
+# Adicione uma blacklist para tokens (em produção use Redis ou database)
+token_blacklist = set()
 
 @auth_bp.route('/login', methods=['POST'])
 def login():
@@ -135,5 +138,35 @@ def admin_login():
             'tipo': 'admin'
         }), 200
 
+    except Exception as e:
+        return error_response(f'Erro interno do servidor: {str(e)}', 500)
+
+# Rota de logout para cliente
+@auth_bp.route('/logout', methods=['POST'])
+@jwt_required()
+def logout():
+    try:
+        # Adiciona o token à blacklist
+        jti = get_jwt()["jti"]
+        token_blacklist.add(jti)
+        
+        return jsonify({
+            'message': 'Logout realizado com sucesso'
+        }), 200
+    except Exception as e:
+        return error_response(f'Erro interno do servidor: {str(e)}', 500)
+
+# Rota de logout para admin
+@auth_bp.route('/admin/logout', methods=['POST'])
+@jwt_required()
+def admin_logout():
+    try:
+        # Adiciona o token à blacklist
+        jti = get_jwt()["jti"]
+        token_blacklist.add(jti)
+        
+        return jsonify({
+            'message': 'Logout administrativo realizado com sucesso'
+        }), 200
     except Exception as e:
         return error_response(f'Erro interno do servidor: {str(e)}', 500)

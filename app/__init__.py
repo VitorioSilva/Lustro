@@ -9,6 +9,9 @@ db = SQLAlchemy()
 jwt = JWTManager()
 migrate = Migrate()
 
+# Blacklist para tokens (em produção use Redis ou database)
+token_blacklist = set()
+
 def create_app():
     app = Flask(__name__)
 
@@ -43,6 +46,8 @@ def create_app():
             raise ValueError("JWT_SECRET_KEY é obrigatória em produção")
 
     app.config['JWT_SECRET_KEY'] = jwt_secret
+    app.config['JWT_BLACKLIST_ENABLED'] = True
+    app.config['JWT_BLACKLIST_TOKEN_CHECKS'] = ['access']
 
     # CORS para frontend
     CORS(app, origins=[
@@ -72,6 +77,12 @@ def create_app():
         admin = Administrador.query.get(int(identity))
         return admin
 
+    # Verificar se token está na blacklist
+    @jwt.token_in_blocklist_loader
+    def check_if_token_revoked(jwt_header, jwt_payload):
+        jti = jwt_payload["jti"]
+        return jti in token_blacklist
+
     # Handlers de erro JWT
     @jwt.unauthorized_loader
     def unauthorized_callback(error):
@@ -84,6 +95,10 @@ def create_app():
     @jwt.expired_token_loader
     def expired_token_callback(jwt_header, jwt_data):
         return jsonify({'error': 'Token expirado'}), 401
+
+    @jwt.revoked_token_loader
+    def revoked_token_callback(jwt_header, jwt_data):
+        return jsonify({'error': 'Token revogado. Faça login novamente.'}), 401
 
     # Registrar blueprints
     from app.routes.auth import auth_bp
