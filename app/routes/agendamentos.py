@@ -4,6 +4,8 @@ from app import db
 from app.models import Agendamento, Servico, Veiculo, User, HorarioFuncionamento, ModeloVeiculo
 from datetime import datetime, timedelta, date
 from app.utils.security import error_response, validate_placa
+from app.utils.twilio_notifier import twilio_notifier
+import os
 
 agendamentos_bp = Blueprint('agendamentos', __name__)
 
@@ -46,6 +48,153 @@ def verificar_disponibilidade(data_agendamento, horario_agendamento, duracao_min
 
     return True
 
+def enviar_notificacao_whatsapp(tipo, agendamento, usuario, servico, novo_status=None):
+    """Função auxiliar para enviar notificações WhatsApp via Twilio"""
+    try:
+        telefone = usuario.telefone
+        if not telefone:
+            print("❌ Cliente não tem telefone cadastrado para notificação")
+            return False
+        
+        # Formatar data e horário no padrão brasileiro
+        data_br = agendamento.data_agendamento.strftime('%d/%m/%Y')
+        horario_br = agendamento.horario_agendamento.strftime('%H:%M')
+        valor = float(agendamento.valor_total)
+        
+        if tipo == 'confirmado':
+            return twilio_notifier.notify_agendamento_confirmado(
+                telefone, usuario.nome, data_br, horario_br, 
+                servico.nome, valor
+            )
+        elif tipo == 'cancelado':
+            return twilio_notifier.notify_agendamento_cancelado(
+                telefone, usuario.nome, data_br, horario_br, 
+                servico.nome
+            )
+        elif tipo == 'status_atualizado' and novo_status:
+            return twilio_notifier.notify_status_atualizado(
+                telefone, usuario.nome, data_br, horario_br, 
+                servico.nome, novo_status
+            )
+        
+    except Exception as e:
+        print(f"❌ Erro ao enviar notificação WhatsApp: {str(e)}")
+        return False
+
+# 🔍 ROTAS DE DIAGNÓSTICO DO TWILIO
+@agendamentos_bp.route('/status-twilio', methods=['GET'])
+def status_twilio():
+    """Verifica status da configuração do Twilio"""
+    return jsonify({
+        'twilio_configurado': twilio_notifier.is_configured(),
+        'account_sid': bool(os.getenv('TWILIO_ACCOUNT_SID')),
+        'auth_token': bool(os.getenv('TWILIO_AUTH_TOKEN')),
+        'whatsapp_from': os.getenv('TWILIO_WHATSAPP_FROM'),
+        'debug': {
+            'account_sid_length': len(os.getenv('TWILIO_ACCOUNT_SID', '')) if os.getenv('TWILIO_ACCOUNT_SID') else 0,
+            'auth_token_length': len(os.getenv('TWILIO_AUTH_TOKEN', '')) if os.getenv('TWILIO_AUTH_TOKEN') else 0
+        }
+    }), 200
+
+@agendamentos_bp.route('/teste-notificacao', methods=['POST'])
+def teste_notificacao():
+    """Rota específica para testar notificações WhatsApp"""
+    try:
+        from datetime import date
+        
+        print("🔔 Iniciando teste de notificação...")
+        
+        # Verificar se Twilio está configurado
+        if not twilio_notifier.is_configured():
+            return jsonify({
+                'error': 'Twilio não configurado',
+                'details': 'Verifique as variáveis de ambiente no Vercel'
+            }), 500
+        
+        # Dados de teste
+        telefone_teste = "558796324412"  # SEU NÚMERO
+        nome_teste = "Cliente Teste"
+        data_teste = date.today().strftime('%d/%m/%Y')
+        horario_teste = "14:30"
+        servico_teste = "Lavagem Completa"
+        valor_teste = 80.00
+        
+        print(f"📤 Enviando para: {telefone_teste}")
+        
+        # Teste direto
+        success = twilio_notifier.send_whatsapp(
+            telefone_teste,
+            "🚗✅ *Teste Direto - Lustro Lavagem*\n\nEsta é uma mensagem de teste direto do seu sistema!\n\nSe esta mensagem chegar, o problema está na função de notificação."
+        )
+        
+        return jsonify({
+            'message': 'Teste de notificação executado',
+            'enviado': success,
+            'numero_teste': telefone_teste,
+            'twilio_configurado': True
+        }), 200
+        
+    except Exception as e:
+        print(f"❌ Erro no teste: {str(e)}")
+        return jsonify({
+            'error': f'Erro no teste: {str(e)}'
+        }), 500
+
+@agendamentos_bp.route('/teste-twilio-completo', methods=['POST'])
+def teste_twilio_completo():
+    """Teste completo da configuração do Twilio"""
+    try:
+        from datetime import date
+        
+        print("🔔 Iniciando teste COMPLETO do Twilio...")
+        
+        # Verificar configuração
+        config_status = {
+            'twilio_configurado': twilio_notifier.is_configured(),
+            'account_sid': bool(os.getenv('TWILIO_ACCOUNT_SID')),
+            'auth_token': bool(os.getenv('TWILIO_AUTH_TOKEN')),
+            'whatsapp_from': os.getenv('TWILIO_WHATSAPP_FROM')
+        }
+        
+        # Teste de conexão
+        connection_test = twilio_notifier.test_connection()
+        
+        # Teste de envio
+        test_numbers = [
+            '558796324412',  # Seu número
+        ]
+        
+        resultados_envio = []
+        
+        for numero in test_numbers:
+            success = twilio_notifier.send_whatsapp(
+                numero,
+                f"🚗✅ *Teste Completo - Lustro Lavagem*\n\n"
+                f"Este é um teste da configuração completa!\n"
+                f"Webhook: ✅ Configurado\n"
+                f"Sandbox: ✅ Participante\n"
+                f"Hora: {datetime.now().strftime('%H:%M:%S')}\n"
+                f"Status: {connection_test.get('connected', False)}"
+            )
+            
+            resultados_envio.append({
+                'numero': f"whatsapp:+{numero}",
+                'enviado': success
+            })
+        
+        return jsonify({
+            'configuracao': config_status,
+            'conexao': connection_test,
+            'testes_envio': resultados_envio,
+            'webhook_url': 'https://lustro-black.vercel.app/api/twilio/webhook',
+            'status_url': 'https://lustro-black.vercel.app/api/twilio/status',
+            'timestamp': datetime.now().isoformat()
+        }), 200
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# ROTAS PRINCIPAIS DE AGENDAMENTOS (mantenha todas as outras rotas existentes)
 @agendamentos_bp.route('', methods=['POST'])
 @jwt_required()
 def criar_agendamento():
@@ -117,12 +266,31 @@ def criar_agendamento():
         db.session.add(novo_agendamento)
         db.session.commit()
 
+        # 🔔 ENVIAR NOTIFICAÇÃO WHATSAPP - COM DEBUG
+        try:
+            usuario = User.query.get(current_user_id)
+            servico_obj = Servico.query.get(data['servico_id'])
+            
+            print(f"🔔 DEBUG: Tentando enviar notificação para: {usuario.telefone if usuario else 'N/A'}")
+            print(f"🔔 DEBUG: Usuário: {usuario.nome if usuario else 'N/A'}")
+            print(f"🔔 DEBUG: Serviço: {servico_obj.nome if servico_obj else 'N/A'}")
+            print(f"🔔 DEBUG: Twilio configurado: {twilio_notifier.is_configured()}")
+            
+            if usuario and usuario.telefone:
+                enviar_notificacao_whatsapp('confirmado', novo_agendamento, usuario, servico_obj)
+                print("✅ Notificação de confirmação processada")
+            else:
+                print("❌ Usuário ou telefone não encontrado")
+        except Exception as e:
+            print(f"⚠️ Erro ao enviar notificação WhatsApp: {str(e)}")
+        # FIM NOTIFICAÇÃO
+
         # Retornar dados completos
         agendamento_dict = novo_agendamento.to_dict()
         agendamento_dict.update({
             'servico_nome': servico.nome,
             'veiculo_placa': veiculo.placa,
-            'modelo_veiculo_nome': modelo_veiculo.nome if modelo_veiculo else 'N/A',  # CORREÇÃO AQUI
+            'modelo_veiculo_nome': modelo_veiculo.nome if modelo_veiculo else 'N/A',
             'nome_proprietario': veiculo.nome_proprietario
         })
 
@@ -170,7 +338,7 @@ def listar_agendamentos():
             ag_dict.update({
                 'servico_nome': servico.nome if servico else 'N/A',
                 'veiculo_placa': veiculo.placa if veiculo else 'N/A',
-                'modelo_veiculo_nome': modelo_veiculo.nome if modelo_veiculo else 'N/A',  # CORREÇÃO
+                'modelo_veiculo_nome': modelo_veiculo.nome if modelo_veiculo else 'N/A',
                 'nome_proprietario': veiculo.nome_proprietario if veiculo else 'N/A'
             })
 
@@ -209,6 +377,17 @@ def cancelar_agendamento(agendamento_id):
 
         agendamento.status = 'cancelado'
         db.session.commit()
+
+        # 🔔 ENVIAR NOTIFICAÇÃO WHATSAPP
+        try:
+            usuario = User.query.get(agendamento.user_id)
+            servico = Servico.query.get(agendamento.servico_id)
+            if usuario and usuario.telefone and servico:
+                enviar_notificacao_whatsapp('cancelado', agendamento, usuario, servico)
+                print("✅ Notificação de cancelamento enviada com sucesso")
+        except Exception as e:
+            print(f"⚠️ Erro ao enviar notificação WhatsApp: {str(e)}")
+        # FIM NOTIFICAÇÃO
 
         return jsonify({
             'message': 'Agendamento cancelado com sucesso'
@@ -358,6 +537,18 @@ def atualizar_status_agendamento(agendamento_id):
         agendamento.status = novo_status
         db.session.commit()
 
+        # 🔔 ENVIAR NOTIFICAÇÃO WHATSAPP (apenas para status relevantes)
+        try:
+            if novo_status in ['andamento', 'concluido', 'confirmado']:
+                usuario = User.query.get(agendamento.user_id)
+                servico = Servico.query.get(agendamento.servico_id)
+                if usuario and usuario.telefone and servico:
+                    enviar_notificacao_whatsapp('status_atualizado', agendamento, usuario, servico, novo_status)
+                    print(f"✅ Notificação de status {novo_status} enviada com sucesso")
+        except Exception as e:
+            print(f"⚠️ Erro ao enviar notificação WhatsApp: {str(e)}")
+        # FIM NOTIFICAÇÃO
+
         return jsonify({
             'message': f'Status do agendamento atualizado para {novo_status}',
             'agendamento': agendamento.to_dict()
@@ -397,7 +588,7 @@ def agendamentos_hoje():
             ag_dict.update({
                 'servico_nome': servico.nome if servico else 'N/A',
                 'veiculo_placa': veiculo.placa if veiculo else 'N/A',
-                'modelo_veiculo_nome': modelo_veiculo.nome if modelo_veiculo else 'N/A',  # CORREÇÃO
+                'modelo_veiculo_nome': modelo_veiculo.nome if modelo_veiculo else 'N/A',
                 'nome_proprietario': veiculo.nome_proprietario if veiculo else 'N/A',
                 'cliente_nome': usuario.nome if usuario else 'N/A',
                 'cliente_telefone': usuario.telefone if usuario else 'N/A'

@@ -109,6 +109,7 @@ def create_app():
     from app.routes.admin import admin_bp
     from app.routes.admin_dashboard import admin_dashboard_bp
     from app.routes.modelos_veiculo import modelos_bp
+    from app.routes.webhooks import twilio_webhook_bp  # NOVO
 
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
     app.register_blueprint(users_bp, url_prefix='/api/users')
@@ -118,6 +119,7 @@ def create_app():
     app.register_blueprint(admin_bp, url_prefix='/api/admin')
     app.register_blueprint(admin_dashboard_bp, url_prefix='/api/admin/dashboard')
     app.register_blueprint(modelos_bp, url_prefix='/api/modelos-veiculo')
+    app.register_blueprint(twilio_webhook_bp, url_prefix='/api/twilio')  # NOVO
 
     # Rota health check
     @app.route('/')
