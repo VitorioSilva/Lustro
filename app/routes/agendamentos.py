@@ -2,7 +2,7 @@ from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app import db
 from app.models import Agendamento, Servico, Veiculo, User, HorarioFuncionamento, ModeloVeiculo
-from datetime import datetime, timedelta, date
+from datetime import datetime, timedelta, date, timezone
 from app.utils.security import error_response, validate_placa
 
 agendamentos_bp = Blueprint('agendamentos', __name__)
@@ -11,6 +11,7 @@ def verificar_disponibilidade(data_agendamento, horario_agendamento, duracao_min
     data_hora_agendamento = datetime.combine(data_agendamento, horario_agendamento)
 
     dia_semana = data_agendamento.weekday()
+
     horario_func = HorarioFuncionamento.query.filter_by(dia_semana=dia_semana).first()
 
     if not horario_func or not horario_func.aberto:
@@ -69,26 +70,47 @@ def criar_agendamento():
 
         # Converter data e horário
         try:
-            data_agendamento = datetime.strptime(data['data_agendamento'], '%Y-%m-%d').date()
-            horario_agendamento = datetime.strptime(data['horario_agendamento'], '%H:%M').time()
+            data_agendamento_obj = datetime.strptime(data['data_agendamento'], '%Y-%m-%d').date()
+            horario_agendamento_obj = datetime.strptime(data['horario_agendamento'], '%H:%M').time()
+            data_hora_agendamento = datetime.combine(data_agendamento_obj, horario_agendamento_obj)
         except ValueError as e:
             return error_response(f'Formato de data/horário inválido: {str(e)}')
+        
+        # Fuso horário de Brasília (UTC-3)
+        fuso_brasilia = timezone(timedelta(hours=-3))
+        agora_brasilia = datetime.now(fuso_brasilia)
+        
+        hoje_brasilia = agora_brasilia.date()
+        horario_atual_brasilia = agora_brasilia.time()
 
-        # Verificar se é data futura
-        data_hora_completa = datetime.combine(data_agendamento, horario_agendamento)
-        if data_hora_completa <= datetime.now():
-            return error_response('A data do agendamento deve ser futura', 400)
+        print(f"🔍 DEBUG - Agora (Brasília): {agora_brasilia}")
+        print(f"🔍 DEBUG - Agendamento: {data_agendamento_obj} {horario_agendamento_obj}")
+
+        # Verificação 1: Não permitir datas passadas
+        if data_agendamento_obj < hoje_brasilia:
+            return error_response('Não é possível agendar para datas passadas', 400)
+
+        # Verificação 2: Para hoje, não permitir horários que já passaram
+        if data_agendamento_obj == hoje_brasilia:
+            print(f"🔍 DEBUG - Horário atual (Brasília): {horario_atual_brasilia}")
+            print(f"🔍 DEBUG - Horário agendamento: {horario_agendamento_obj}")
+            
+            if horario_agendamento_obj <= horario_atual_brasilia:
+                return error_response(
+                    f'Não é possível agendar para horários que já passaram. '
+                    f'Horário atual: {horario_atual_brasilia.strftime("%H:%M")}', 
+                    400
+                )
 
         # Verificar disponibilidade
-        if not verificar_disponibilidade(data_agendamento, horario_agendamento, servico.duracao_minutos):
+        if not verificar_disponibilidade(data_agendamento_obj, horario_agendamento_obj, servico.duracao_minutos):
             return error_response('Horário indisponível', 409)
 
-        # Encontrar ou criar veículo
+        # Resto do código permanece igual...
         placa_limpa = data['placa'].upper().replace('-', '').replace(' ', '')
         veiculo = Veiculo.query.filter_by(placa=placa_limpa).first()
 
         if not veiculo:
-            # Criar novo veículo
             veiculo = Veiculo(
                 usuario_id=current_user_id,
                 nome_proprietario=data['nome_proprietario'],
@@ -97,15 +119,13 @@ def criar_agendamento():
                 telefone=data['telefone']
             )
             db.session.add(veiculo)
-            db.session.flush()  # Para obter o ID
+            db.session.flush()
 
-        # Buscar o modelo do veículo separadamente (sem relacionamento)
         modelo_veiculo = ModeloVeiculo.query.get(veiculo.modelo_veiculo_id)
 
-        # Criar agendamento com user_id
         novo_agendamento = Agendamento(
-            data_agendamento=data_agendamento,
-            horario_agendamento=horario_agendamento,
+            data_agendamento=data_agendamento_obj,
+            horario_agendamento=horario_agendamento_obj,
             valor_total=float(servico.preco),
             user_id=current_user_id,
             veiculo_id=veiculo.id,
@@ -122,7 +142,7 @@ def criar_agendamento():
         agendamento_dict.update({
             'servico_nome': servico.nome,
             'veiculo_placa': veiculo.placa,
-            'modelo_veiculo_nome': modelo_veiculo.nome if modelo_veiculo else 'N/A',  # CORREÇÃO AQUI
+            'modelo_veiculo_nome': modelo_veiculo.nome if modelo_veiculo else 'N/A',
             'nome_proprietario': veiculo.nome_proprietario
         })
 
@@ -170,13 +190,15 @@ def listar_agendamentos():
             ag_dict.update({
                 'servico_nome': servico.nome if servico else 'N/A',
                 'veiculo_placa': veiculo.placa if veiculo else 'N/A',
-                'modelo_veiculo_nome': modelo_veiculo.nome if modelo_veiculo else 'N/A',  # CORREÇÃO
-                'nome_proprietario': veiculo.nome_proprietario if veiculo else 'N/A'
+                'modelo_veiculo_nome': modelo_veiculo.nome if modelo_veiculo else 'N/A',
+                'nome_proprietario': veiculo.nome_proprietario if veiculo else 'N/A',
+                'telefone_veiculo': veiculo.telefone if veiculo else 'N/A'
             })
 
             if is_admin and usuario:
                 ag_dict['cliente_nome'] = usuario.nome
                 ag_dict['cliente_telefone'] = usuario.telefone
+                ag_dict['cliente_email'] = usuario.email
 
             agendamentos_completos.append(ag_dict)
 
@@ -193,7 +215,7 @@ def cancelar_agendamento(agendamento_id):
     try:
         current_user_id = get_jwt_identity()
         agendamento = Agendamento.query.get_or_404(agendamento_id)
-
+        
         # CORREÇÃO: Verificação simplificada e funcional
         from app.models import Administrador
         
@@ -224,7 +246,7 @@ def detalhes_agendamento(agendamento_id):
     try:
         current_user_id = get_jwt_identity()
         agendamento = Agendamento.query.get_or_404(agendamento_id)
-
+        
         # CORREÇÃO: Verificação simplificada e funcional
         from app.models import Administrador
         
@@ -246,13 +268,19 @@ def detalhes_agendamento(agendamento_id):
             'cliente': usuario.to_dict() if usuario and is_admin else None
         })
 
+        agendamento_dict['telefone_contato'] = veiculo.telefone if veiculo else None
+
+        if is_admin and usuario:
+            agendamento_dict['cliente_telefone'] = usuario.telefone
+            agendamento_dict['cliente_email'] = usuario.email
+
         return jsonify({
             'agendamento': agendamento_dict
         }), 200
 
     except Exception as e:
         return error_response(f'Erro interno do servidor: {str(e)}', 500)
-    
+
 @agendamentos_bp.route('/horarios-disponiveis', methods=['GET'])
 @jwt_required()
 def horarios_disponiveis():
@@ -341,7 +369,7 @@ def atualizar_status_agendamento(agendamento_id):
     try:
         current_user_id = get_jwt_identity()
         agendamento = Agendamento.query.get_or_404(agendamento_id)
-
+        
         # CORREÇÃO: Verificação de admin correta
         from app.models import Administrador
         is_admin = Administrador.query.get(current_user_id) is not None
@@ -379,6 +407,7 @@ def agendamentos_hoje():
             return error_response('Acesso não autorizado', 403)
 
         hoje = date.today()
+
         agendamentos = Agendamento.query.filter(
             Agendamento.data_agendamento == hoje,
             Agendamento.status.in_(['confirmado', 'pendente'])
@@ -397,11 +426,14 @@ def agendamentos_hoje():
             ag_dict.update({
                 'servico_nome': servico.nome if servico else 'N/A',
                 'veiculo_placa': veiculo.placa if veiculo else 'N/A',
-                'modelo_veiculo_nome': modelo_veiculo.nome if modelo_veiculo else 'N/A',  # CORREÇÃO
+                'modelo_veiculo_nome': modelo_veiculo.nome if modelo_veiculo else 'N/A',
                 'nome_proprietario': veiculo.nome_proprietario if veiculo else 'N/A',
+                'telefone_veiculo': veiculo.telefone if veiculo else 'N/A',
                 'cliente_nome': usuario.nome if usuario else 'N/A',
-                'cliente_telefone': usuario.telefone if usuario else 'N/A'
+                'cliente_telefone': usuario.telefone if usuario else 'N/A',
+                'cliente_email': usuario.email if usuario else 'N/A'
             })
+
             agendamentos_completos.append(ag_dict)
 
         return jsonify({

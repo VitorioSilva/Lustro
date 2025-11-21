@@ -39,9 +39,11 @@ def agendamentos_hoje():
             ag_dict.update({
                 'cliente_nome': usuario.nome if usuario else 'N/A',
                 'cliente_telefone': usuario.telefone if usuario else 'N/A',
+                'cliente_email': usuario.email if usuario else 'N/A',
                 'veiculo_placa': veiculo.placa if veiculo else 'N/A',
                 'modelo_veiculo_nome': veiculo.modelo.nome if veiculo and veiculo.modelo else 'N/A',
                 'nome_proprietario': veiculo.nome_proprietario if veiculo else 'N/A',
+                'telefone_veiculo': veiculo.telefone if veiculo else 'N/A',
                 'servico_nome': servico.nome if servico else 'N/A',
                 'servico_duracao': servico.duracao_minutos if servico else 0
             })
@@ -171,9 +173,11 @@ def listar_todos_agendamentos():
             ag_dict.update({
                 'cliente_nome': usuario.nome if usuario else 'N/A',
                 'cliente_telefone': usuario.telefone if usuario else 'N/A',
+                'cliente_email': usuario.email if usuario else 'N/A',
                 'veiculo_placa': veiculo.placa if veiculo else 'N/A',
-                'modelo_veiculo_nome': modelo_veiculo.nome if modelo_veiculo else 'N/A',  # CORREÇÃO
+                'modelo_veiculo_nome': modelo_veiculo.nome if modelo_veiculo else 'N/A',
                 'nome_proprietario': veiculo.nome_proprietario if veiculo else 'N/A',
+                'telefone_veiculo': veiculo.telefone if veiculo else 'N/A',
                 'servico_nome': servico.nome if servico else 'N/A'
             })
             agendamentos_enriquecidos.append(ag_dict)
